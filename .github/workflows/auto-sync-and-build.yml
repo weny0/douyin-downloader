@@ -1,0 +1,104 @@
+name: 自动同步上游 + 构建 Docker 镜像
+
+on:
+  # 每天凌晨 2 点检查一次更新
+  schedule:
+    - cron: '0 2 * * *'
+  # 手动触发（方便测试）
+  workflow_dispatch:
+  # 每次 push 也触发
+  push:
+    branches: [main, master]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ========== 任务1：同步上游代码 ==========
+  sync-upstream:
+    runs-on: ubuntu-latest
+    outputs:
+      has_update: ${{ steps.sync.outputs.has_update }}
+    steps:
+      - name: 检出你的仓库
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: 添加上游仓库
+        run: |
+          git remote add upstream https://github.com/jiji262/douyin-downloader.git
+          git fetch upstream
+
+      - name: 同步上游代码
+        id: sync
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # 获取当前分支
+          BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          
+          # 尝试合并上游
+          git merge upstream/$BRANCH --no-edit || true
+          
+          # 检查是否有变化
+          if git diff --quiet HEAD upstream/$BRANCH; then
+            echo "has_update=false" >> $GITHUB_OUTPUT
+            echo "✅ 没有新更新"
+          else
+            echo "has_update=true" >> $GITHUB_OUTPUT
+            echo "🔄 发现更新，正在合并..."
+            git merge upstream/$BRANCH --no-edit
+            git push origin $BRANCH
+          fi
+
+  # ========== 任务2：构建 Docker 镜像 ==========
+  build-docker:
+    needs: sync-upstream
+    # 无论是否有更新都构建（首次运行），或者只在有更新时构建
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: 设置 Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 登录 GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 提取元数据
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 构建并推送 Docker 镜像
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
