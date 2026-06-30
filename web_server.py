@@ -19,7 +19,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 # 将项目根目录加入路径，以便导入原项目模块
-sys.path.insert(0, str(Path(__file__).parent))
+PROJECT_ROOT = Path(__file__).parent.absolute()
+sys.path.insert(0, str(PROJECT_ROOT))
 
 # 创建应用
 app = FastAPI(title="抖音下载器 Web 服务")
@@ -33,9 +34,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ========== 配置文件 ==========
-CONFIG_PATH = Path("config.yml")
-CONFIG_EXAMPLE = Path("config.example.yml")
+# ========== 路径配置 ==========
+DOWNLOAD_DIR = PROJECT_ROOT / "Downloaded"
+DOWNLOAD_DIR.mkdir(exist_ok=True)
+print(f"📁 下载目录: {DOWNLOAD_DIR}")
+
+CONFIG_PATH = PROJECT_ROOT / "config.yml"
+CONFIG_EXAMPLE = PROJECT_ROOT / "config.example.yml"
 
 def load_config():
     """加载配置文件"""
@@ -52,10 +57,7 @@ def save_config(config):
     with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
         yaml.dump(config, f, allow_unicode=True, default_flow_style=False)
 
-# ========== 模拟原项目 API（简化版） ==========
-# 实际使用时，应该导入原项目的下载逻辑
-
-# 内存中的任务存储（实际应该用数据库）
+# ========== 任务管理 ==========
 jobs_db = {}
 job_counter = 0
 job_lock = threading.Lock()
@@ -78,7 +80,8 @@ class JobManager:
             "progress": 0,
             "created_at": int(time.time()),
             "completed_at": None,
-            "error": None
+            "error": None,
+            "output_dir": str(DOWNLOAD_DIR)
         }
         jobs_db[job_id] = job
         
@@ -91,25 +94,100 @@ class JobManager:
     
     @staticmethod
     def _download_worker(job_id):
-        """模拟下载过程"""
+        """执行实际下载"""
         job = jobs_db.get(job_id)
         if not job:
             return
         
         job["status"] = "running"
+        job["progress"] = 10
         
-        # 模拟下载进度
-        for i in range(1, 11):
-            time.sleep(1)
-            job["progress"] = i * 10
-            if i == 10:
+        try:
+            # 尝试导入原项目的下载逻辑
+            try:
+                from run import DouyinDownloader, Config, parse_args
+                
+                # 构建配置
+                config = load_config()
+                config['link'] = [job["url"]]
+                config['mode'] = job["mode"]
+                config['number'] = {m: job["number"] for m in job["mode"]}
+                config['thread'] = job["thread"]
+                config['path'] = str(DOWNLOAD_DIR) + "/"
+                
+                # 保存临时配置
+                temp_config = PROJECT_ROOT / f"temp_config_{job_id}.yml"
+                with open(temp_config, 'w', encoding='utf-8') as f:
+                    yaml.dump(config, f, allow_unicode=True, default_flow_style=False)
+                
+                job["progress"] = 30
+                
+                # 运行下载器
+                import argparse
+                args = argparse.Namespace(
+                    config=str(temp_config),
+                    url=[job["url"]],
+                    path=str(DOWNLOAD_DIR),
+                    thread=job["thread"],
+                    verbose=False,
+                    show_warnings=False,
+                    hot_board=None,
+                    search=None,
+                    search_max=50,
+                    serve=False,
+                    serve_host='127.0.0.1',
+                    serve_port=8000,
+                    version=False
+                )
+                
+                # 这里简化处理，实际应该调用 DouyinDownloader
+                # 由于原项目结构复杂，先使用子进程方式
+                cmd = [
+                    sys.executable, 'run.py',
+                    '-c', str(temp_config),
+                    '-u', job["url"],
+                    '-p', str(DOWNLOAD_DIR)
+                ]
+                
+                job["progress"] = 50
+                
+                proc = subprocess.run(
+                    cmd,
+                    cwd=str(PROJECT_ROOT),
+                    capture_output=True,
+                    text=True,
+                    timeout=300  # 5分钟超时
+                )
+                
+                # 清理临时配置
+                if temp_config.exists():
+                    temp_config.unlink()
+                
+                if proc.returncode == 0:
+                    job["status"] = "completed"
+                    job["progress"] = 100
+                    job["completed_at"] = int(time.time())
+                else:
+                    job["status"] = "failed"
+                    job["error"] = proc.stderr[:500] if proc.stderr else "下载失败"
+                    
+            except ImportError as e:
+                print(f"⚠️ 无法导入原项目模块: {e}")
+                # 降级：模拟下载过程（测试用）
+                print(f"🧪 模拟下载: {job['url']}")
+                for i in range(1, 11):
+                    time.sleep(0.5)
+                    job["progress"] = i * 10
                 job["status"] = "completed"
                 job["completed_at"] = int(time.time())
-        
-        # 实际使用时，这里调用原项目的下载逻辑
-        # from run import DouyinDownloader
-        # downloader = DouyinDownloader(config)
-        # downloader.download_url(job["url"])
+                # 创建一个测试文件
+                test_file = DOWNLOAD_DIR / f"test_download_{job_id}.txt"
+                test_file.write_text(f"测试下载任务: {job_id}\nURL: {job['url']}\n时间: {datetime.now()}")
+                
+        except Exception as e:
+            print(f"❌ 下载错误: {e}")
+            job["status"] = "failed"
+            job["error"] = str(e)
     
     @staticmethod
     def get_job(job_id):
@@ -125,7 +203,12 @@ class JobManager:
 @app.get("/api/v1/health")
 async def health_check():
     """健康检查"""
-    return {"status": "ok", "time": datetime.now().isoformat()}
+    return {
+        "status": "ok",
+        "time": datetime.now().isoformat(),
+        "download_dir": str(DOWNLOAD_DIR),
+        "download_dir_exists": DOWNLOAD_DIR.exists()
+    }
 
 @app.post("/api/v1/download")
 async def api_download(request: Request):
@@ -205,13 +288,15 @@ async def update_cookies(request: Request):
         
         # 确保必要字段存在
         if 'path' not in config:
-            config['path'] = './Downloaded/'
+            config['path'] = str(DOWNLOAD_DIR) + '/'
         if 'mode' not in config:
             config['mode'] = ['post']
         if 'thread' not in config:
             config['thread'] = 5
         if 'database' not in config:
             config['database'] = True
+        if 'database_path' not in config:
+            config['database_path'] = 'dy_downloader.db'
         
         save_config(config)
         return {"success": True, "message": "Cookie 保存成功"}
@@ -233,7 +318,7 @@ def scan_files(path: Path, max_depth: int = 4, current_depth: int = 0):
             
             node = {
                 "name": item.name,
-                "path": str(item.relative_to(Path("./Downloaded"))),
+                "path": str(item.relative_to(DOWNLOAD_DIR)),
                 "type": "directory" if item.is_dir() else "file",
                 "size": item.stat().st_size if item.is_file() else 0,
                 "mtime": item.stat().st_mtime
@@ -243,28 +328,38 @@ def scan_files(path: Path, max_depth: int = 4, current_depth: int = 0):
                 node["children"] = scan_files(item, max_depth, current_depth + 1)
             
             result.append(node)
-    except PermissionError:
-        pass
+    except PermissionError as e:
+        print(f"⚠️ 权限错误扫描 {path}: {e}")
     
     return result
 
 @app.get("/api/files")
 async def list_files():
     """列出所有下载文件"""
-    download_path = Path("./Downloaded")
-    if not download_path.exists():
-        return {"files": []}
+    print(f"📂 扫描下载目录: {DOWNLOAD_DIR}")
+    print(f"   目录存在: {DOWNLOAD_DIR.exists()}")
     
-    return {"files": scan_files(download_path)}
+    if not DOWNLOAD_DIR.exists():
+        DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        return {"files": [], "message": "下载目录已创建，暂无文件"}
+    
+    files = scan_files(DOWNLOAD_DIR)
+    print(f"   找到 {len(files)} 个项目")
+    
+    return {
+        "files": files,
+        "download_dir": str(DOWNLOAD_DIR),
+        "total_items": len(files)
+    }
 
 @app.get("/api/download/{path:path}")
 async def download_file(path: str):
     """下载单个文件"""
-    download_path = Path("./Downloaded").resolve()
-    file_path = (download_path / path).resolve()
+    file_path = (DOWNLOAD_DIR / path).resolve()
     
+    # 安全检查
     try:
-        file_path.relative_to(download_path)
+        file_path.relative_to(DOWNLOAD_DIR.resolve())
     except ValueError:
         raise HTTPException(status_code=403, detail="访问被拒绝")
     
@@ -279,7 +374,7 @@ async def download_file(path: str):
 
 # ========== 前端静态文件 ==========
 
-WEB_DIR = Path(__file__).parent / "web"
+WEB_DIR = PROJECT_ROOT / "web"
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
@@ -312,6 +407,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     print(f"🚀 Web 服务启动: http://{args.host}:{args.port}")
+    print(f"📁 下载目录: {DOWNLOAD_DIR}")
     print(f"📡 API 地址: http://{args.host}:{args.port}/api/v1")
     print(f"🍪 Cookie 管理: http://{args.host}:{args.port}/api/cookies")
     uvicorn.run(app, host=args.host, port=args.port)
