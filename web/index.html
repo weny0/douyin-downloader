@@ -403,37 +403,68 @@
         .toast-info { background: #667eea; }
         .toast-warning { background: #ffc107; color: #333; }
         
-        .file-list {
-            max-height: 300px;
-            overflow-y: auto;
+        /* 文件树样式 */
+        .file-tree {
+            font-family: monospace;
+            font-size: 14px;
         }
-        .file-item {
+        .file-tree-item {
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-bottom: 4px;
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            padding: 10px 15px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            margin-bottom: 8px;
+            gap: 10px;
         }
-        .file-item a {
+        .file-tree-item:hover {
+            background: #f0f0f0;
+        }
+        .file-tree-item .icon {
+            font-size: 18px;
+            width: 24px;
+            text-align: center;
+        }
+        .file-tree-item .name {
+            flex: 1;
+            color: #333;
+        }
+        .file-tree-item .size {
+            color: #888;
+            font-size: 12px;
+        }
+        .file-tree-item .actions {
+            display: flex;
+            gap: 8px;
+        }
+        .file-tree-item .actions a {
             color: #667eea;
             text-decoration: none;
-            font-weight: 500;
-        }
-        .file-item a:hover { text-decoration: underline; }
-        
-        .debug-info {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 10px;
-            margin-top: 10px;
-            font-family: monospace;
             font-size: 12px;
-            color: #666;
-            display: none;
+            padding: 4px 10px;
+            background: #e7e9ff;
+            border-radius: 4px;
         }
-        .debug-info.show { display: block; }
+        .file-tree-item .actions a:hover {
+            background: #667eea;
+            color: white;
+        }
+        .file-tree-children {
+            margin-left: 30px;
+            border-left: 2px solid #e0e0e0;
+            padding-left: 10px;
+        }
+        
+        .download-path-info {
+            background: #e7f3ff;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            color: #0066cc;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
         
         @media (max-width: 600px) {
             .header h1 { font-size: 1.8em; }
@@ -544,7 +575,6 @@ https://www.douyin.com/music/123456789"></textarea>
                     Cookie 是访问抖音 API 的凭证。<strong style="color:#dc3545;">请勿泄露给他人！</strong>
                 </p>
                 
-                <!-- 一键粘贴区域 -->
                 <div class="paste-area">
                     <h3>📋 一键粘贴 Cookie</h3>
                     <div class="hint">
@@ -554,8 +584,7 @@ https://www.douyin.com/music/123456789"></textarea>
                         4. 复制整段 Cookie 内容，粘贴到下方：
                     </div>
                     <div class="input-group">
-                        <textarea id="pasteCookie" rows="4" placeholder="粘贴整段 Cookie 到这里，例如：
-douyin.com; ttwid=1%7Cxxx; msToken=xxx; odin_tt=xxx; sid_guard=xxx; passport_csrf_token=xxx; ..."></textarea>
+                        <textarea id="pasteCookie" rows="4" placeholder="粘贴整段 Cookie 到这里..."></textarea>
                     </div>
                     <button class="btn btn-info" onclick="parseAndFillCookies()" id="btnParse">
                         <span>🔍</span> 自动提取并填充
@@ -567,7 +596,6 @@ douyin.com; ttwid=1%7Cxxx; msToken=xxx; odin_tt=xxx; sid_guard=xxx; passport_csr
                     </div>
                 </div>
                 
-                <!-- 手动编辑区域 -->
                 <div style="margin-top: 25px;">
                     <h4 style="color:#333; margin-bottom:15px;">📝 手动编辑（高级）</h4>
                     <div class="cookie-grid">
@@ -617,8 +645,6 @@ douyin.com; ttwid=1%7Cxxx; msToken=xxx; odin_tt=xxx; sid_guard=xxx; passport_csr
                         <span>🗑️</span> 清空
                     </button>
                 </div>
-                
-                <div class="debug-info" id="debugInfo"></div>
             </div>
             
             <!-- 任务列表 -->
@@ -633,7 +659,10 @@ douyin.com; ttwid=1%7Cxxx; msToken=xxx; odin_tt=xxx; sid_guard=xxx; passport_csr
             
             <!-- 文件列表 -->
             <div class="tab-content" id="tab-files">
-                <div class="file-list" id="fileList">
+                <div class="download-path-info" id="downloadPathInfo">
+                    📁 下载目录: 加载中...
+                </div>
+                <div class="file-tree" id="fileTree">
                     <div class="empty-state">
                         <div class="icon">📁</div>
                         <p>暂无下载文件</p>
@@ -646,19 +675,11 @@ douyin.com; ttwid=1%7Cxxx; msToken=xxx; odin_tt=xxx; sid_guard=xxx; passport_csr
     <div class="toast" id="toast"></div>
 
     <script>
-        const API_BASE = '';  // 空字符串表示相对路径，自动匹配当前域名和端口
-        
         function showToast(message, type = 'info') {
             const toast = document.getElementById('toast');
             toast.textContent = message;
             toast.className = `toast toast-${type} show`;
             setTimeout(() => toast.classList.remove('show'), 3000);
-        }
-        
-        function logDebug(msg) {
-            const debug = document.getElementById('debugInfo');
-            debug.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
-            debug.classList.add('show');
         }
         
         function switchTab(tab) {
@@ -677,8 +698,6 @@ douyin.com; ttwid=1%7Cxxx; msToken=xxx; odin_tt=xxx; sid_guard=xxx; passport_csr
         function parseCookieString(cookieStr) {
             const result = {};
             const keys = ['msToken', 'ttwid', 'odin_tt', 'passport_csrf_token', 'sid_guard'];
-            
-            // 处理各种分隔符：; 或 ;空格
             const parts = cookieStr.split(/;\s*/);
             
             for (const part of parts) {
@@ -709,7 +728,6 @@ douyin.com; ttwid=1%7Cxxx; msToken=xxx; odin_tt=xxx; sid_guard=xxx; passport_csr
             const keys = ['msToken', 'ttwid', 'odin_tt', 'passport_csrf_token', 'sid_guard'];
             let filledCount = 0;
             
-            // 填充到输入框
             for (const key of keys) {
                 const input = document.getElementById(`cookie-${key}`);
                 if (input && extracted[key]) {
@@ -718,7 +736,6 @@ douyin.com; ttwid=1%7Cxxx; msToken=xxx; odin_tt=xxx; sid_guard=xxx; passport_csr
                 }
             }
             
-            // 显示提取结果
             const resultDiv = document.getElementById('pasteResult');
             const cookiesDiv = document.getElementById('extractedCookies');
             
@@ -740,7 +757,6 @@ douyin.com; ttwid=1%7Cxxx; msToken=xxx; odin_tt=xxx; sid_guard=xxx; passport_csr
             
             if (filledCount > 0) {
                 showToast(`成功提取 ${filledCount} 个 Cookie 字段！`, 'success');
-                // 自动保存
                 setTimeout(() => saveCookies(), 800);
             } else {
                 showToast('未能提取到任何 Cookie 字段，请检查粘贴内容', 'error');
@@ -752,7 +768,6 @@ douyin.com; ttwid=1%7Cxxx; msToken=xxx; odin_tt=xxx; sid_guard=xxx; passport_csr
         async function loadCookies() {
             try {
                 const res = await fetch('/api/cookies');
-                logDebug(`GET /api/cookies -> ${res.status}`);
                 const data = await res.json();
                 if (data.cookies) {
                     Object.keys(data.cookies).forEach(key => {
@@ -765,7 +780,7 @@ douyin.com; ttwid=1%7Cxxx; msToken=xxx; odin_tt=xxx; sid_guard=xxx; passport_csr
                     updateCookieStatus(data.cookies);
                 }
             } catch (err) {
-                logDebug(`加载 Cookie 失败: ${err.message}`);
+                console.log('加载 Cookie 失败:', err);
             }
         }
         
@@ -831,7 +846,6 @@ douyin.com; ttwid=1%7Cxxx; msToken=xxx; odin_tt=xxx; sid_guard=xxx; passport_csr
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ cookies })
                 });
-                logDebug(`POST /api/cookies -> ${res.status}`);
                 const data = await res.json();
                 
                 if (res.ok) {
@@ -843,7 +857,6 @@ douyin.com; ttwid=1%7Cxxx; msToken=xxx; odin_tt=xxx; sid_guard=xxx; passport_csr
                 }
             } catch (err) {
                 showToast(err.message, 'error');
-                logDebug(`保存 Cookie 错误: ${err.message}`);
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<span>💾</span> 保存 Cookie';
@@ -877,7 +890,6 @@ douyin.com; ttwid=1%7Cxxx; msToken=xxx; odin_tt=xxx; sid_guard=xxx; passport_csr
             
             try {
                 const res = await fetch('/api/v1/health');
-                logDebug(`GET /api/v1/health -> ${res.status}`);
                 if (res.ok) {
                     const data = await res.json();
                     dot.className = 'status-dot';
@@ -888,7 +900,6 @@ douyin.com; ttwid=1%7Cxxx; msToken=xxx; odin_tt=xxx; sid_guard=xxx; passport_csr
             } catch (err) {
                 dot.className = 'status-dot offline';
                 text.textContent = `服务未连接 (${err.message})`;
-                logDebug(`健康检查失败: ${err.message}`);
             }
         }
         
@@ -901,7 +912,7 @@ douyin.com; ttwid=1%7Cxxx; msToken=xxx; odin_tt=xxx; sid_guard=xxx; passport_csr
             
             const ttwid = document.getElementById('cookie-ttwid').value.trim();
             if (!ttwid) {
-                showToast('请先配置 Cookie！切换到"Cookie 设置"页', 'warning');
+                showToast('请先配置 Cookie！', 'warning');
                 switchTab('cookie');
                 return;
             }
@@ -916,7 +927,6 @@ douyin.com; ttwid=1%7Cxxx; msToken=xxx; odin_tt=xxx; sid_guard=xxx; passport_csr
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url: url })
                 });
-                logDebug(`POST /api/v1/download -> ${res.status}`);
                 const data = await res.json();
                 if (res.ok) {
                     showToast(`任务提交成功: ${data.job_id}`, 'success');
@@ -927,7 +937,6 @@ douyin.com; ttwid=1%7Cxxx; msToken=xxx; odin_tt=xxx; sid_guard=xxx; passport_csr
                 }
             } catch (err) {
                 showToast(err.message, 'error');
-                logDebug(`下载错误: ${err.message}`);
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<span>⬇️</span> 开始下载';
@@ -943,7 +952,7 @@ douyin.com; ttwid=1%7Cxxx; msToken=xxx; odin_tt=xxx; sid_guard=xxx; passport_csr
             
             const ttwid = document.getElementById('cookie-ttwid').value.trim();
             if (!ttwid) {
-                showToast('请先配置 Cookie！切换到"Cookie 设置"页', 'warning');
+                showToast('请先配置 Cookie！', 'warning');
                 switchTab('cookie');
                 return;
             }
@@ -969,7 +978,6 @@ douyin.com; ttwid=1%7Cxxx; msToken=xxx; odin_tt=xxx; sid_guard=xxx; passport_csr
                         thread: parseInt(document.getElementById('batchThread').value) || 5
                     })
                 });
-                logDebug(`POST /api/v1/download -> ${res.status}`);
                 const data = await res.json();
                 if (res.ok) {
                     showToast(`批量任务提交成功: ${data.job_id}`, 'success');
@@ -980,7 +988,6 @@ douyin.com; ttwid=1%7Cxxx; msToken=xxx; odin_tt=xxx; sid_guard=xxx; passport_csr
                 }
             } catch (err) {
                 showToast(err.message, 'error');
-                logDebug(`批量下载错误: ${err.message}`);
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<span>⬇️</span> 开始批量下载';
@@ -992,7 +999,6 @@ douyin.com; ttwid=1%7Cxxx; msToken=xxx; odin_tt=xxx; sid_guard=xxx; passport_csr
         async function refreshJobs() {
             try {
                 const res = await fetch('/api/v1/jobs');
-                logDebug(`GET /api/v1/jobs -> ${res.status}`);
                 const data = await res.json();
                 const jobs = data.jobs || [];
                 const list = document.getElementById('jobList');
@@ -1019,35 +1025,82 @@ douyin.com; ttwid=1%7Cxxx; msToken=xxx; odin_tt=xxx; sid_guard=xxx; passport_csr
                     </div>
                 `).join('');
             } catch (err) {
-                logDebug(`获取任务失败: ${err.message}`);
+                console.log('获取任务失败:', err);
             }
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        function formatTime(timestamp) {
+            if (!timestamp) return '-';
+            const d = new Date(timestamp * 1000);
+            return d.toLocaleString('zh-CN');
+        }
+        
+        function renderFileTree(items, level = 0) {
+            if (!items || items.length === 0) return '';
+            
+            return items.map(item => {
+                const isDir = item.type === 'directory';
+                const icon = isDir ? '📁' : '📄';
+                const size = isDir ? `${item.children ? item.children.length : 0} 项` : formatFileSize(item.size);
+                
+                let html = `
+                    <div class="file-tree-item" style="padding-left: ${level * 20 + 12}px">
+                        <span class="icon">${icon}</span>
+                        <span class="name">${escapeHtml(item.name)}</span>
+                        <span class="size">${size}</span>
+                        <div class="actions">
+                            ${!isDir ? `<a href="/api/download/${encodeURIComponent(item.path)}" download>⬇️ 下载</a>` : ''}
+                        </div>
+                    </div>
+                `;
+                
+                if (isDir && item.children && item.children.length > 0) {
+                    html += `<div class="file-tree-children">${renderFileTree(item.children, level + 1)}</div>`;
+                }
+                
+                return html;
+            }).join('');
         }
         
         async function refreshFiles() {
             try {
                 const res = await fetch('/api/files');
-                logDebug(`GET /api/files -> ${res.status}`);
                 const data = await res.json();
                 const files = data.files || [];
-                const list = document.getElementById('fileList');
+                const tree = document.getElementById('fileTree');
+                const pathInfo = document.getElementById('downloadPathInfo');
+                
+                // 显示下载路径
+                if (data.download_dir) {
+                    pathInfo.innerHTML = `📁 下载目录: ${escapeHtml(data.download_dir)}`;
+                }
                 
                 if (files.length === 0) {
-                    list.innerHTML = `
+                    tree.innerHTML = `
                         <div class="empty-state">
                             <div class="icon">📁</div>
-                            <p>暂无下载文件</p>
+                            <p>${data.message || '暂无下载文件'}</p>
+                            <p style="font-size: 13px; margin-top: 10px;">提交下载任务后，文件将出现在这里</p>
                         </div>`;
                     return;
                 }
                 
-                list.innerHTML = files.map(f => `
-                    <div class="file-item">
-                        <span>${escapeHtml(f.name)}</span>
-                        <a href="/api/download/${encodeURIComponent(f.path)}" download>⬇️ 下载</a>
-                    </div>
-                `).join('');
+                tree.innerHTML = renderFileTree(files);
             } catch (err) {
-                logDebug(`获取文件失败: ${err.message}`);
+                document.getElementById('fileTree').innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">❌</div>
+                        <p>获取文件列表失败</p>
+                        <p style="font-size: 13px; margin-top: 10px;">${escapeHtml(err.message)}</p>
+                    </div>`;
             }
         }
         
