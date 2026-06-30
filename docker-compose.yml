@@ -1,0 +1,23 @@
+version: "3.8"
+
+services:
+  douyin-downloader:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: douyin-downloader
+    ports:
+      - "8080:8080"
+    volumes:
+      # 配置文件（只读）
+      - ./config.yml:/app/config.yml:ro
+      # 下载目录
+      - ./Downloaded:/app/Downloaded
+      # 数据库持久化
+      - ./dy_downloader.db:/app/dy_downloader.db
+    environment:
+      - PYTHONUNBUFFERED=1
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    restart: unless-stopped
+    # 如需浏览器功能，取消下面注释
+    # privileged: true
