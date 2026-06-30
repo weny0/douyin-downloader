@@ -1,12 +1,12 @@
 name: 自动同步上游 + 构建 Docker 镜像
 
 on:
-  # 每天凌晨 2 点检查一次更新
+  # 每天凌晨 2 点检查更新
   schedule:
     - cron: '0 2 * * *'
-  # 手动触发（方便测试）
+  # 手动触发
   workflow_dispatch:
-  # 每次 push 也触发
+  # 每次 push 触发
   push:
     branches: [main, master]
 
@@ -15,13 +15,12 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # ========== 任务1：同步上游代码 ==========
   sync-upstream:
     runs-on: ubuntu-latest
     outputs:
       has_update: ${{ steps.sync.outputs.has_update }}
     steps:
-      - name: 检出你的仓库
+      - name: 检出仓库
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -37,14 +36,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # 获取当前分支
           BRANCH=$(git rev-parse --abbrev-ref HEAD)
-          
-          # 尝试合并上游
           git merge upstream/$BRANCH --no-edit || true
-          
-          # 检查是否有变化
           if git diff --quiet HEAD upstream/$BRANCH; then
             echo "has_update=false" >> $GITHUB_OUTPUT
             echo "✅ 没有新更新"
@@ -55,16 +48,13 @@ jobs:
             git push origin $BRANCH
           fi
 
-  # ========== 任务2：构建 Docker 镜像 ==========
   build-docker:
     needs: sync-upstream
-    # 无论是否有更新都构建（首次运行），或者只在有更新时构建
     if: always()
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-    
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
