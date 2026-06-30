@@ -182,4 +182,895 @@
             color: #856404;
         }
         
-       
+        .paste-area {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 2px dashed #667eea;
+        }
+        .paste-area h3 {
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .paste-area .hint {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+        .paste-area .hint code {
+            background: #fff;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            color: #667eea;
+        }
+        .paste-result {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            display: none;
+        }
+        .paste-result.show { display: block; }
+        .paste-result h4 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .extracted-cookies {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        .extracted-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+        .extracted-item .name {
+            font-weight: 600;
+            color: #333;
+        }
+        .extracted-item .value {
+            color: #28a745;
+            font-weight: 600;
+        }
+        .extracted-item .value.empty {
+            color: #dc3545;
+        }
+        
+        .cookie-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .cookie-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+        }
+        .cookie-item:hover {
+            border-color: #667eea;
+        }
+        .cookie-item label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        .cookie-item input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: monospace;
+        }
+        .cookie-item input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .cookie-badge {
+            font-size: 11px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+        .cookie-badge.filled {
+            background: #d4edda;
+            color: #155724;
+        }
+        .cookie-badge.empty {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .cookie-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .option-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .option-item:hover { background: #e9ecef; }
+        .option-item input[type="checkbox"] { width: 18px; height: 18px; }
+        
+        .job-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .job-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+        .job-info { flex: 1; }
+        .job-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+            word-break: break-all;
+        }
+        .job-meta {
+            font-size: 13px;
+            color: #888;
+        }
+        .job-status {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-running { background: #cce5ff; color: #004085; }
+        .status-completed { background: #d4edda; color: #155724; }
+        .status-failed { background: #f8d7da; color: #721c24; }
+        
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 3px;
+            transition: width 0.5s;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+        .empty-state .icon { font-size: 3em; margin-bottom: 15px; }
+        
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 16px 24px;
+            border-radius: 10px;
+            color: white;
+            font-weight: 600;
+            z-index: 1000;
+            transform: translateX(400px);
+            transition: transform 0.3s;
+            max-width: 400px;
+            word-break: break-all;
+        }
+        .toast.show { transform: translateX(0); }
+        .toast-success { background: #28a745; }
+        .toast-error { background: #dc3545; }
+        .toast-info { background: #667eea; }
+        .toast-warning { background: #ffc107; color: #333; }
+        
+        .file-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        .file-item a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .file-item a:hover { text-decoration: underline; }
+        
+        .debug-info {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            color: #666;
+            display: none;
+        }
+        .debug-info.show { display: block; }
+        
+        @media (max-width: 600px) {
+            .header h1 { font-size: 1.8em; }
+            .card { padding: 20px; }
+            .cookie-grid { grid-template-columns: 1fr; }
+            .cookie-actions { flex-direction: column; }
+            .cookie-actions .btn { margin-left: 0; width: 100%; justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎬 抖音下载器</h1>
+            <p>粘贴链接，一键下载视频、图集、合集</p>
+        </div>
+        
+        <div class="card">
+            <div class="status-bar">
+                <div class="status-dot checking" id="statusDot"></div>
+                <span id="statusText">正在连接服务...</span>
+                <div style="flex:1"></div>
+                <div class="cookie-status missing" id="cookieStatus">
+                    <span>🍪</span>
+                    <span id="cookieStatusText">Cookie 未配置</span>
+                </div>
+            </div>
+            
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('single')">📹 单个视频</button>
+                <button class="tab" onclick="switchTab('batch')">👤 作者主页批量</button>
+                <button class="tab" onclick="switchTab('cookie')">🔑 Cookie 设置</button>
+                <button class="tab" onclick="switchTab('tasks')">📋 任务列表</button>
+                <button class="tab" onclick="switchTab('files')">📁 下载文件</button>
+            </div>
+            
+            <!-- 单个视频 -->
+            <div class="tab-content active" id="tab-single">
+                <div class="input-group">
+                    <label>抖音视频链接</label>
+                    <textarea id="singleUrl" placeholder="支持格式：
+https://www.douyin.com/video/123456789
+https://v.douyin.com/xxxxx
+https://www.douyin.com/note/123456789
+https://www.douyin.com/music/123456789"></textarea>
+                </div>
+                <button class="btn btn-primary" onclick="downloadSingle()" id="btnSingle">
+                    <span>⬇️</span> 开始下载
+                </button>
+            </div>
+            
+            <!-- 批量下载 -->
+            <div class="tab-content" id="tab-batch">
+                <div class="input-group">
+                    <label>作者主页链接</label>
+                    <input type="text" id="batchUrl" placeholder="https://www.douyin.com/user/MS4wLjABAAAA...">
+                </div>
+                <div class="input-group">
+                    <label>下载模式</label>
+                    <div class="options">
+                        <label class="option-item">
+                            <input type="checkbox" value="post" checked class="mode-check">
+                            <span>📹 作品</span>
+                        </label>
+                        <label class="option-item">
+                            <input type="checkbox" value="like" class="mode-check">
+                            <span>❤️ 喜欢</span>
+                        </label>
+                        <label class="option-item">
+                            <input type="checkbox" value="mix" class="mode-check">
+                            <span>📁 合集</span>
+                        </label>
+                        <label class="option-item">
+                            <input type="checkbox" value="music" class="mode-check">
+                            <span>🎵 音乐</span>
+                        </label>
+                        <label class="option-item">
+                            <input type="checkbox" value="collect" class="mode-check">
+                            <span>⭐ 收藏</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="options">
+                    <div class="input-group">
+                        <label>下载数量 (0=全部)</label>
+                        <input type="number" id="batchNumber" value="0" min="0">
+                    </div>
+                    <div class="input-group">
+                        <label>并发数</label>
+                        <input type="number" id="batchThread" value="5" min="1" max="20">
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="downloadBatch()" id="btnBatch">
+                    <span>⬇️</span> 开始批量下载
+                </button>
+            </div>
+            
+            <!-- Cookie 设置 -->
+            <div class="tab-content" id="tab-cookie">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <h3 style="color:#333;">🍪 Cookie 配置</h3>
+                    <div class="cookie-status missing" id="cookieDetailStatus">
+                        <span>未配置</span>
+                    </div>
+                </div>
+                
+                <p style="color:#666; margin-bottom:20px; line-height:1.6;">
+                    Cookie 是访问抖音 API 的凭证。<strong style="color:#dc3545;">请勿泄露给他人！</strong>
+                </p>
+                
+                <!-- 一键粘贴区域 -->
+                <div class="paste-area">
+                    <h3>📋 一键粘贴 Cookie</h3>
+                    <div class="hint">
+                        1. 打开抖音网页版，按 <code>F12</code> 打开开发者工具<br>
+                        2. 切换到 <code>Network</code>（网络）标签，刷新页面<br>
+                        3. 点击任意请求，在 <code>Headers</code> 中找到 <code>Cookie:</code><br>
+                        4. 复制整段 Cookie 内容，粘贴到下方：
+                    </div>
+                    <div class="input-group">
+                        <textarea id="pasteCookie" rows="4" placeholder="粘贴整段 Cookie 到这里，例如：
+douyin.com; ttwid=1%7Cxxx; msToken=xxx; odin_tt=xxx; sid_guard=xxx; passport_csrf_token=xxx; ..."></textarea>
+                    </div>
+                    <button class="btn btn-info" onclick="parseAndFillCookies()" id="btnParse">
+                        <span>🔍</span> 自动提取并填充
+                    </button>
+                    
+                    <div class="paste-result" id="pasteResult">
+                        <h4>✅ 提取结果</h4>
+                        <div class="extracted-cookies" id="extractedCookies"></div>
+                    </div>
+                </div>
+                
+                <!-- 手动编辑区域 -->
+                <div style="margin-top: 25px;">
+                    <h4 style="color:#333; margin-bottom:15px;">📝 手动编辑（高级）</h4>
+                    <div class="cookie-grid">
+                        <div class="cookie-item">
+                            <label>
+                                msToken
+                                <span class="cookie-badge empty" id="badge-msToken">空</span>
+                            </label>
+                            <input type="text" id="cookie-msToken" placeholder="粘贴 msToken...">
+                        </div>
+                        <div class="cookie-item">
+                            <label>
+                                ttwid <span style="color:#dc3545;">*</span>
+                                <span class="cookie-badge empty" id="badge-ttwid">空</span>
+                            </label>
+                            <input type="text" id="cookie-ttwid" placeholder="粘贴 ttwid...（必填）">
+                        </div>
+                        <div class="cookie-item">
+                            <label>
+                                odin_tt
+                                <span class="cookie-badge empty" id="badge-odin_tt">空</span>
+                            </label>
+                            <input type="text" id="cookie-odin_tt" placeholder="粘贴 odin_tt...">
+                        </div>
+                        <div class="cookie-item">
+                            <label>
+                                passport_csrf_token
+                                <span class="cookie-badge empty" id="badge-passport_csrf_token">空</span>
+                            </label>
+                            <input type="text" id="cookie-passport_csrf_token" placeholder="粘贴 passport_csrf_token...">
+                        </div>
+                        <div class="cookie-item">
+                            <label>
+                                sid_guard
+                                <span class="cookie-badge empty" id="badge-sid_guard">空</span>
+                            </label>
+                            <input type="text" id="cookie-sid_guard" placeholder="粘贴 sid_guard...">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="cookie-actions">
+                    <button class="btn btn-success" onclick="saveCookies()" id="btnSaveCookie">
+                        <span>💾</span> 保存 Cookie
+                    </button>
+                    <button class="btn btn-secondary" onclick="clearCookies()">
+                        <span>🗑️</span> 清空
+                    </button>
+                </div>
+                
+                <div class="debug-info" id="debugInfo"></div>
+            </div>
+            
+            <!-- 任务列表 -->
+            <div class="tab-content" id="tab-tasks">
+                <div class="job-list" id="jobList">
+                    <div class="empty-state">
+                        <div class="icon">📋</div>
+                        <p>暂无任务</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 文件列表 -->
+            <div class="tab-content" id="tab-files">
+                <div class="file-list" id="fileList">
+                    <div class="empty-state">
+                        <div class="icon">📁</div>
+                        <p>暂无下载文件</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const API_BASE = '';  // 空字符串表示相对路径，自动匹配当前域名和端口
+        
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast toast-${type} show`;
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+        
+        function logDebug(msg) {
+            const debug = document.getElementById('debugInfo');
+            debug.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+            debug.classList.add('show');
+        }
+        
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById(`tab-${tab}`).classList.add('active');
+            
+            if (tab === 'tasks') refreshJobs();
+            if (tab === 'files') refreshFiles();
+            if (tab === 'cookie') loadCookies();
+        }
+        
+        // ========== Cookie 一键解析 ==========
+        
+        function parseCookieString(cookieStr) {
+            const result = {};
+            const keys = ['msToken', 'ttwid', 'odin_tt', 'passport_csrf_token', 'sid_guard'];
+            
+            // 处理各种分隔符：; 或 ;空格
+            const parts = cookieStr.split(/;\s*/);
+            
+            for (const part of parts) {
+                const eqIndex = part.indexOf('=');
+                if (eqIndex === -1) continue;
+                
+                const key = part.substring(0, eqIndex).trim();
+                const value = part.substring(eqIndex + 1).trim();
+                
+                if (keys.includes(key) && value) {
+                    result[key] = value;
+                }
+            }
+            
+            return result;
+        }
+        
+        function parseAndFillCookies() {
+            const pasteArea = document.getElementById('pasteCookie');
+            const cookieStr = pasteArea.value.trim();
+            
+            if (!cookieStr) {
+                showToast('请先粘贴 Cookie 内容', 'error');
+                return;
+            }
+            
+            const extracted = parseCookieString(cookieStr);
+            const keys = ['msToken', 'ttwid', 'odin_tt', 'passport_csrf_token', 'sid_guard'];
+            let filledCount = 0;
+            
+            // 填充到输入框
+            for (const key of keys) {
+                const input = document.getElementById(`cookie-${key}`);
+                if (input && extracted[key]) {
+                    input.value = extracted[key];
+                    filledCount++;
+                }
+            }
+            
+            // 显示提取结果
+            const resultDiv = document.getElementById('pasteResult');
+            const cookiesDiv = document.getElementById('extractedCookies');
+            
+            cookiesDiv.innerHTML = keys.map(key => {
+                const hasValue = !!extracted[key];
+                return `
+                    <div class="extracted-item">
+                        <span class="name">${key}:</span>
+                        <span class="value ${hasValue ? '' : 'empty'}">
+                            ${hasValue ? '✅ 已提取' : '❌ 未找到'}
+                        </span>
+                    </div>
+                `;
+            }).join('');
+            
+            resultDiv.classList.add('show');
+            updateCookieBadges(extracted);
+            updateCookieStatus(extracted);
+            
+            if (filledCount > 0) {
+                showToast(`成功提取 ${filledCount} 个 Cookie 字段！`, 'success');
+                // 自动保存
+                setTimeout(() => saveCookies(), 800);
+            } else {
+                showToast('未能提取到任何 Cookie 字段，请检查粘贴内容', 'error');
+            }
+        }
+        
+        // ========== Cookie 管理 ==========
+        
+        async function loadCookies() {
+            try {
+                const res = await fetch('/api/cookies');
+                logDebug(`GET /api/cookies -> ${res.status}`);
+                const data = await res.json();
+                if (data.cookies) {
+                    Object.keys(data.cookies).forEach(key => {
+                        const input = document.getElementById(`cookie-${key}`);
+                        if (input && data.cookies[key]) {
+                            input.value = data.cookies[key];
+                        }
+                    });
+                    updateCookieBadges(data.cookies);
+                    updateCookieStatus(data.cookies);
+                }
+            } catch (err) {
+                logDebug(`加载 Cookie 失败: ${err.message}`);
+            }
+        }
+        
+        function updateCookieBadges(cookies) {
+            const keys = ['msToken', 'ttwid', 'odin_tt', 'passport_csrf_token', 'sid_guard'];
+            keys.forEach(key => {
+                const badge = document.getElementById(`badge-${key}`);
+                const input = document.getElementById(`cookie-${key}`);
+                const value = input ? input.value : (cookies ? cookies[key] : '');
+                if (badge) {
+                    if (value) {
+                        badge.textContent = '已填';
+                        badge.className = 'cookie-badge filled';
+                    } else {
+                        badge.textContent = '空';
+                        badge.className = 'cookie-badge empty';
+                    }
+                }
+            });
+        }
+        
+        function updateCookieStatus(cookies) {
+            const ttwid = document.getElementById('cookie-ttwid').value.trim() || (cookies && cookies.ttwid);
+            const statusEl = document.getElementById('cookieStatus');
+            const statusText = document.getElementById('cookieStatusText');
+            const detailStatus = document.getElementById('cookieDetailStatus');
+            
+            if (ttwid) {
+                statusEl.className = 'cookie-status ok';
+                statusText.textContent = 'Cookie 已配置';
+                detailStatus.className = 'cookie-status ok';
+                detailStatus.innerHTML = '<span>✅ 已配置</span>';
+            } else {
+                statusEl.className = 'cookie-status missing';
+                statusText.textContent = 'Cookie 未配置';
+                detailStatus.className = 'cookie-status missing';
+                detailStatus.innerHTML = '<span>❌ 未配置</span>';
+            }
+        }
+        
+        async function saveCookies() {
+            const cookies = {
+                msToken: document.getElementById('cookie-msToken').value.trim(),
+                ttwid: document.getElementById('cookie-ttwid').value.trim(),
+                odin_tt: document.getElementById('cookie-odin_tt').value.trim(),
+                passport_csrf_token: document.getElementById('cookie-passport_csrf_token').value.trim(),
+                sid_guard: document.getElementById('cookie-sid_guard').value.trim()
+            };
+            
+            if (!cookies.ttwid) {
+                showToast('ttwid 是必填项，请填写后再保存', 'error');
+                document.getElementById('cookie-ttwid').focus();
+                return;
+            }
+            
+            const btn = document.getElementById('btnSaveCookie');
+            btn.disabled = true;
+            btn.innerHTML = '<span>⏳</span> 保存中...';
+            
+            try {
+                const res = await fetch('/api/cookies', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cookies })
+                });
+                logDebug(`POST /api/cookies -> ${res.status}`);
+                const data = await res.json();
+                
+                if (res.ok) {
+                    showToast('Cookie 保存成功！', 'success');
+                    updateCookieBadges(cookies);
+                    updateCookieStatus(cookies);
+                } else {
+                    throw new Error(data.detail || '保存失败');
+                }
+            } catch (err) {
+                showToast(err.message, 'error');
+                logDebug(`保存 Cookie 错误: ${err.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>💾</span> 保存 Cookie';
+            }
+        }
+        
+        function clearCookies() {
+            if (!confirm('确定要清空所有 Cookie 吗？')) return;
+            
+            ['msToken', 'ttwid', 'odin_tt', 'passport_csrf_token', 'sid_guard'].forEach(key => {
+                const input = document.getElementById(`cookie-${key}`);
+                if (input) input.value = '';
+            });
+            
+            document.getElementById('pasteCookie').value = '';
+            document.getElementById('pasteResult').classList.remove('show');
+            
+            updateCookieBadges({});
+            updateCookieStatus({});
+            showToast('Cookie 已清空，记得保存', 'info');
+        }
+        
+        // ========== 下载功能 ==========
+        
+        async function checkHealth() {
+            const dot = document.getElementById('statusDot');
+            const text = document.getElementById('statusText');
+            
+            dot.className = 'status-dot checking';
+            text.textContent = '正在连接服务...';
+            
+            try {
+                const res = await fetch('/api/v1/health');
+                logDebug(`GET /api/v1/health -> ${res.status}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    dot.className = 'status-dot';
+                    text.textContent = `服务正常 (${data.status || 'ok'})`;
+                } else {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+            } catch (err) {
+                dot.className = 'status-dot offline';
+                text.textContent = `服务未连接 (${err.message})`;
+                logDebug(`健康检查失败: ${err.message}`);
+            }
+        }
+        
+        async function downloadSingle() {
+            const url = document.getElementById('singleUrl').value.trim();
+            if (!url) {
+                showToast('请输入抖音链接', 'error');
+                return;
+            }
+            
+            const ttwid = document.getElementById('cookie-ttwid').value.trim();
+            if (!ttwid) {
+                showToast('请先配置 Cookie！切换到"Cookie 设置"页', 'warning');
+                switchTab('cookie');
+                return;
+            }
+            
+            const btn = document.getElementById('btnSingle');
+            btn.disabled = true;
+            btn.innerHTML = '<span>⏳</span> 提交中...';
+            
+            try {
+                const res = await fetch('/api/v1/download', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url })
+                });
+                logDebug(`POST /api/v1/download -> ${res.status}`);
+                const data = await res.json();
+                if (res.ok) {
+                    showToast(`任务提交成功: ${data.job_id}`, 'success');
+                    document.getElementById('singleUrl').value = '';
+                    setTimeout(() => switchTab('tasks'), 500);
+                } else {
+                    throw new Error(data.detail || '提交失败');
+                }
+            } catch (err) {
+                showToast(err.message, 'error');
+                logDebug(`下载错误: ${err.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>⬇️</span> 开始下载';
+            }
+        }
+        
+        async function downloadBatch() {
+            const url = document.getElementById('batchUrl').value.trim();
+            if (!url) {
+                showToast('请输入作者主页链接', 'error');
+                return;
+            }
+            
+            const ttwid = document.getElementById('cookie-ttwid').value.trim();
+            if (!ttwid) {
+                showToast('请先配置 Cookie！切换到"Cookie 设置"页', 'warning');
+                switchTab('cookie');
+                return;
+            }
+            
+            const modes = Array.from(document.querySelectorAll('.mode-check:checked')).map(c => c.value);
+            if (modes.length === 0) {
+                showToast('请至少选择一种下载模式', 'error');
+                return;
+            }
+            
+            const btn = document.getElementById('btnBatch');
+            btn.disabled = true;
+            btn.innerHTML = '<span>⏳</span> 提交中...';
+            
+            try {
+                const res = await fetch('/api/v1/download', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        url: url,
+                        mode: modes,
+                        number: parseInt(document.getElementById('batchNumber').value) || 0,
+                        thread: parseInt(document.getElementById('batchThread').value) || 5
+                    })
+                });
+                logDebug(`POST /api/v1/download -> ${res.status}`);
+                const data = await res.json();
+                if (res.ok) {
+                    showToast(`批量任务提交成功: ${data.job_id}`, 'success');
+                    document.getElementById('batchUrl').value = '';
+                    setTimeout(() => switchTab('tasks'), 500);
+                } else {
+                    throw new Error(data.detail || '提交失败');
+                }
+            } catch (err) {
+                showToast(err.message, 'error');
+                logDebug(`批量下载错误: ${err.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>⬇️</span> 开始批量下载';
+            }
+        }
+        
+        // ========== 任务和文件 ==========
+        
+        async function refreshJobs() {
+            try {
+                const res = await fetch('/api/v1/jobs');
+                logDebug(`GET /api/v1/jobs -> ${res.status}`);
+                const data = await res.json();
+                const jobs = data.jobs || [];
+                const list = document.getElementById('jobList');
+                
+                if (jobs.length === 0) {
+                    list.innerHTML = `
+                        <div class="empty-state">
+                            <div class="icon">📋</div>
+                            <p>暂无任务</p>
+                        </div>`;
+                    return;
+                }
+                
+                list.innerHTML = jobs.map(job => `
+                    <div class="job-item">
+                        <div class="job-info">
+                            <div class="job-title">${escapeHtml(job.url || '未知链接')}</div>
+                            <div class="job-meta">ID: ${job.job_id} | 状态: ${getStatusText(job.status)} | 进度: ${job.progress || 0}%</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${job.progress || 0}%"></div>
+                            </div>
+                        </div>
+                        <div class="job-status status-${job.status || 'pending'}">${getStatusText(job.status)}</div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                logDebug(`获取任务失败: ${err.message}`);
+            }
+        }
+        
+        async function refreshFiles() {
+            try {
+                const res = await fetch('/api/files');
+                logDebug(`GET /api/files -> ${res.status}`);
+                const data = await res.json();
+                const files = data.files || [];
+                const list = document.getElementById('fileList');
+                
+                if (files.length === 0) {
+                    list.innerHTML = `
+                        <div class="empty-state">
+                            <div class="icon">📁</div>
+                            <p>暂无下载文件</p>
+                        </div>`;
+                    return;
+                }
+                
+                list.innerHTML = files.map(f => `
+                    <div class="file-item">
+                        <span>${escapeHtml(f.name)}</span>
+                        <a href="/api/download/${encodeURIComponent(f.path)}" download>⬇️ 下载</a>
+                    </div>
+                `).join('');
+            } catch (err) {
+                logDebug(`获取文件失败: ${err.message}`);
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function getStatusText(status) {
+            const map = { pending: '等待中', running: '下载中', completed: '已完成', failed: '失败' };
+            return map[status] || status;
+        }
+        
+        // 初始化
+        checkHealth();
+        loadCookies();
+        setInterval(checkHealth, 5000);
+        setInterval(() => {
+            if (document.getElementById('tab-tasks').classList.contains('active')) {
+                refreshJobs();
+            }
+        }, 3000);
+    </script>
+</body>
+</html>
