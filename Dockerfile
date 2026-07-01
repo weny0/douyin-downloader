@@ -3,7 +3,10 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# 安装系统依赖
+# 设置环境变量，确保 Playwright 浏览器安装在项目内，防止容器重启丢失
+ENV PLAYWRIGHT_BROWSERS_PATH=/app/ms-playwright
+
+# 安装系统依赖（增加了 Playwright 运行 Chromium 必须的 Linux 系统库）
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libsqlite3-dev \
@@ -13,13 +16,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # 复制依赖并安装
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install --no-cache-dir fastapi uvicorn
+RUN pip install --no-cache-dir fastapi uvicorn pyyaml playwright
 
-# 可选：安装 playwright（如果需要浏览器回退）
-# RUN pip install --no-cache-dir playwright
-# RUN python -m playwright install chromium || true
+# 关键步骤：安装 Playwright 浏览器内核 (Chromium) 及其 Linux 依赖环境
+RUN python -m playwright install chromium
+RUN python -m playwright install-deps chromium
 
-# 复制项目代码
+# 复制项目代码（包括你的 web_server.py 和 web 静态网页文件夹）
 COPY . .
 
 # 创建下载目录
