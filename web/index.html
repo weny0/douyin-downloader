@@ -494,14 +494,13 @@
             </div>
             
             <div class="tabs">
-                <button class="tab active" onclick="switchTab('single')">📹 单个视频</button>
-                <button class="tab" onclick="switchTab('batch')">👤 作者主页批量</button>
-                <button class="tab" onclick="switchTab('cookie')">🔑 Cookie 设置</button>
-                <button class="tab" onclick="switchTab('tasks')">📋 任务列表</button>
-                <button class="tab" onclick="switchTab('files')">📁 下载文件</button>
+                <button class="tab active" onclick="switchTab('single', this)">📹 单个视频</button>
+                <button class="tab" onclick="switchTab('batch', this)">👤 作者主页批量</button>
+                <button class="tab" onclick="switchTab('cookie', this)">🔑 Cookie 设置</button>
+                <button class="tab" onclick="switchTab('tasks', this)">📋 任务列表</button>
+                <button class="tab" onclick="switchTab('files', this)">📁 下载文件</button>
             </div>
             
-            <!-- 单个视频 -->
             <div class="tab-content active" id="tab-single">
                 <div class="input-group">
                     <label>抖音视频链接</label>
@@ -516,7 +515,6 @@ https://www.douyin.com/music/123456789"></textarea>
                 </button>
             </div>
             
-            <!-- 批量下载 -->
             <div class="tab-content" id="tab-batch">
                 <div class="input-group">
                     <label>作者主页链接</label>
@@ -562,7 +560,6 @@ https://www.douyin.com/music/123456789"></textarea>
                 </button>
             </div>
             
-            <!-- Cookie 设置 -->
             <div class="tab-content" id="tab-cookie">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
                     <h3 style="color:#333;">🍪 Cookie 配置</h3>
@@ -647,7 +644,6 @@ https://www.douyin.com/music/123456789"></textarea>
                 </div>
             </div>
             
-            <!-- 任务列表 -->
             <div class="tab-content" id="tab-tasks">
                 <div class="job-list" id="jobList">
                     <div class="empty-state">
@@ -657,7 +653,6 @@ https://www.douyin.com/music/123456789"></textarea>
                 </div>
             </div>
             
-            <!-- 文件列表 -->
             <div class="tab-content" id="tab-files">
                 <div class="download-path-info" id="downloadPathInfo">
                     📁 下载目录: 加载中...
@@ -675,6 +670,9 @@ https://www.douyin.com/music/123456789"></textarea>
     <div class="toast" id="toast"></div>
 
     <script>
+        // 全局定时器变量
+        let jobsRefreshTimer = null;
+
         function showToast(message, type = 'info') {
             const toast = document.getElementById('toast');
             toast.textContent = message;
@@ -682,13 +680,26 @@ https://www.douyin.com/music/123456789"></textarea>
             setTimeout(() => toast.classList.remove('show'), 3000);
         }
         
-        function switchTab(tab) {
+        function switchTab(tab, element) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            event.target.classList.add('active');
+            
+            if (element) {
+                element.classList.add('active');
+            }
             document.getElementById(`tab-${tab}`).classList.add('active');
             
-            if (tab === 'tasks') refreshJobs();
+            // 关闭正在运行的任务轮询
+            if (jobsRefreshTimer) {
+                clearInterval(jobsRefreshTimer);
+                jobsRefreshTimer = null;
+            }
+
+            if (tab === 'tasks') {
+                refreshJobs();
+                // 只有切到任务列表时，才开启每3秒轮询
+                jobsRefreshTimer = setInterval(refreshJobs, 3000);
+            }
             if (tab === 'files') refreshFiles();
             if (tab === 'cookie') loadCookies();
         }
@@ -757,7 +768,8 @@ https://www.douyin.com/music/123456789"></textarea>
             
             if (filledCount > 0) {
                 showToast(`成功提取 ${filledCount} 个 Cookie 字段！`, 'success');
-                setTimeout(() => saveCookies(), 800);
+                // 直接将解析好的对象传给保存函数，避免读取延迟
+                setTimeout(() => saveCookies(extracted), 500);
             } else {
                 showToast('未能提取到任何 Cookie 字段，请检查粘贴内容', 'error');
             }
@@ -803,7 +815,8 @@ https://www.douyin.com/music/123456789"></textarea>
         }
         
         function updateCookieStatus(cookies) {
-            const ttwid = document.getElementById('cookie-ttwid').value.trim() || (cookies && cookies.ttwid);
+            const inputTtwid = document.getElementById('cookie-ttwid') ? document.getElementById('cookie-ttwid').value.trim() : '';
+            const ttwid = inputTtwid || (cookies && cookies.ttwid);
             const statusEl = document.getElementById('cookieStatus');
             const statusText = document.getElementById('cookieStatusText');
             const detailStatus = document.getElementById('cookieDetailStatus');
@@ -821,8 +834,8 @@ https://www.douyin.com/music/123456789"></textarea>
             }
         }
         
-        async function saveCookies() {
-            const cookies = {
+        async function saveCookies(directCookies = null) {
+            const cookies = directCookies || {
                 msToken: document.getElementById('cookie-msToken').value.trim(),
                 ttwid: document.getElementById('cookie-ttwid').value.trim(),
                 odin_tt: document.getElementById('cookie-odin_tt').value.trim(),
@@ -832,7 +845,7 @@ https://www.douyin.com/music/123456789"></textarea>
             
             if (!cookies.ttwid) {
                 showToast('ttwid 是必填项，请填写后再保存', 'error');
-                document.getElementById('cookie-ttwid').focus();
+                if (document.getElementById('cookie-ttwid')) document.getElementById('cookie-ttwid').focus();
                 return;
             }
             
@@ -885,9 +898,6 @@ https://www.douyin.com/music/123456789"></textarea>
             const dot = document.getElementById('statusDot');
             const text = document.getElementById('statusText');
             
-            dot.className = 'status-dot checking';
-            text.textContent = '正在连接服务...';
-            
             try {
                 const res = await fetch('/api/v1/health');
                 if (res.ok) {
@@ -913,7 +923,7 @@ https://www.douyin.com/music/123456789"></textarea>
             const ttwid = document.getElementById('cookie-ttwid').value.trim();
             if (!ttwid) {
                 showToast('请先配置 Cookie！', 'warning');
-                switchTab('cookie');
+                switchTab('cookie', document.querySelectorAll('.tab')[2]);
                 return;
             }
             
@@ -931,7 +941,7 @@ https://www.douyin.com/music/123456789"></textarea>
                 if (res.ok) {
                     showToast(`任务提交成功: ${data.job_id}`, 'success');
                     document.getElementById('singleUrl').value = '';
-                    setTimeout(() => switchTab('tasks'), 500);
+                    setTimeout(() => switchTab('tasks', document.querySelectorAll('.tab')[3]), 500);
                 } else {
                     throw new Error(data.detail || '提交失败');
                 }
@@ -953,7 +963,7 @@ https://www.douyin.com/music/123456789"></textarea>
             const ttwid = document.getElementById('cookie-ttwid').value.trim();
             if (!ttwid) {
                 showToast('请先配置 Cookie！', 'warning');
-                switchTab('cookie');
+                switchTab('cookie', document.querySelectorAll('.tab')[2]);
                 return;
             }
             
@@ -982,7 +992,7 @@ https://www.douyin.com/music/123456789"></textarea>
                 if (res.ok) {
                     showToast(`批量任务提交成功: ${data.job_id}`, 'success');
                     document.getElementById('batchUrl').value = '';
-                    setTimeout(() => switchTab('tasks'), 500);
+                    setTimeout(() => switchTab('tasks', document.querySelectorAll('.tab')[3]), 500);
                 } else {
                     throw new Error(data.detail || '提交失败');
                 }
@@ -1037,12 +1047,6 @@ https://www.douyin.com/music/123456789"></textarea>
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
         
-        function formatTime(timestamp) {
-            if (!timestamp) return '-';
-            const d = new Date(timestamp * 1000);
-            return d.toLocaleString('zh-CN');
-        }
-        
         function renderFileTree(items, level = 0) {
             if (!items || items.length === 0) return '';
             
@@ -1078,7 +1082,6 @@ https://www.douyin.com/music/123456789"></textarea>
                 const tree = document.getElementById('fileTree');
                 const pathInfo = document.getElementById('downloadPathInfo');
                 
-                // 显示下载路径
                 if (data.download_dir) {
                     pathInfo.innerHTML = `📁 下载目录: ${escapeHtml(data.download_dir)}`;
                 }
@@ -1115,15 +1118,11 @@ https://www.douyin.com/music/123456789"></textarea>
             return map[status] || status;
         }
         
-        // 初始化
+        // 初始化运行
         checkHealth();
         loadCookies();
+        // 仅保留基础服务的5秒心跳检测
         setInterval(checkHealth, 5000);
-        setInterval(() => {
-            if (document.getElementById('tab-tasks').classList.contains('active')) {
-                refreshJobs();
-            }
-        }, 3000);
     </script>
 </body>
 </html>
