@@ -191,6 +191,107 @@ async def test_get_user_post_returns_normalized_dto(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_live_replay_endpoints_use_episode_paths(monkeypatch):
+    client = DouyinAPIClient({"msToken": "token-1"})
+    called_requests = []
+
+    async def _fake_request_json(path, params, suppress_error=False):
+        called_requests.append((path, dict(params), suppress_error))
+        if path == "/aweme/v1/web/show/episode/enter/":
+            return {"status_code": 0, "data": {"episode": {"attach_room_id_str": "room-1"}}}
+        if path == "/aweme/v1/web/show/episode/replay_list/":
+            return {
+                "status_code": 0,
+                "data": {
+                    "all_replay": [
+                        {"info_list": [{"episode_id_str": "ep-1", "replay_id": "rp-1", "title": "回放"}]}
+                    ]
+                },
+            }
+        return {}
+
+    monkeypatch.setattr(client, "_request_json", _fake_request_json)
+
+    episode = await client.get_live_replay_episode("ep-1")
+    replay = await client.get_live_replay_info("ep-1", "room-1", replay_id="rp-1")
+
+    assert episode == {"attach_room_id_str": "room-1"}
+    assert replay["episode_id_str"] == "ep-1"
+    assert [call[0] for call in called_requests] == [
+        "/aweme/v1/web/show/episode/enter/",
+        "/aweme/v1/web/show/episode/replay_list/",
+    ]
+    assert called_requests[0][1]["episode_id"] == "ep-1"
+    assert called_requests[0][1]["channel"] == ""
+    assert called_requests[0][2] is True
+    assert called_requests[1][1]["episode_id"] == "ep-1"
+    assert called_requests[1][1]["room_id"] == "room-1"
+    assert called_requests[1][1]["replay_id"] == "rp-1"
+    assert called_requests[1][1]["channel"] == ""
+    assert called_requests[1][2] is True
+
+
+@pytest.mark.asyncio
+async def test_live_replay_info_accepts_response_variants(monkeypatch):
+    client = DouyinAPIClient({"msToken": "token-1"})
+
+    responses = [
+        {"status_code": 0, "data": {"info_list": [{"replay_id": "rp-1", "title": "flat"}]}},
+        {"status_code": 0, "data": {"replay_list": [{"id": "rp-2", "title": "list"}]}},
+        {"status_code": 0, "data": {"replay": {"episode_id_str": "ep-3", "title": "single"}}},
+    ]
+
+    async def _fake_request_json(path, params, suppress_error=False):
+        return responses.pop(0)
+
+    monkeypatch.setattr(client, "_request_json", _fake_request_json)
+
+    assert (await client.get_live_replay_info("ep-1", "room-1", replay_id="rp-1"))["title"] == "flat"
+    assert (await client.get_live_replay_info("ep-2", "room-1", replay_id="rp-2"))["title"] == "list"
+    assert (await client.get_live_replay_info("ep-3", "room-1"))["title"] == "single"
+
+
+@pytest.mark.asyncio
+async def test_live_replay_info_uses_strict_replay_id_match(monkeypatch):
+    client = DouyinAPIClient({"msToken": "token-1"})
+
+    async def _fake_request_json(path, params, suppress_error=False):
+        return {
+            "status_code": 0,
+            "data": {
+                "info_list": [
+                    {"episode_id_str": "ep-1", "replay_id": "wrong", "title": "wrong"},
+                    {"episode_id_str": "ep-1", "replay_id": "rp-1", "title": "right"},
+                ]
+            },
+        }
+
+    monkeypatch.setattr(client, "_request_json", _fake_request_json)
+
+    replay = await client.get_live_replay_info("ep-1", "room-1", replay_id="rp-1")
+
+    assert replay is not None
+    assert replay["title"] == "right"
+
+
+@pytest.mark.asyncio
+async def test_live_replay_info_rejects_single_candidate_with_wrong_replay_id(monkeypatch):
+    client = DouyinAPIClient({"msToken": "token-1"})
+
+    async def _fake_request_json(path, params, suppress_error=False):
+        return {
+            "status_code": 0,
+            "data": {
+                "replay": {"episode_id_str": "ep-1", "replay_id": "wrong", "title": "wrong"}
+            },
+        }
+
+    monkeypatch.setattr(client, "_request_json", _fake_request_json)
+
+    assert await client.get_live_replay_info("ep-1", "room-1", replay_id="rp-1") is None
+
+
+@pytest.mark.asyncio
 async def test_user_mode_endpoints_use_shared_paged_normalization(monkeypatch):
     client = DouyinAPIClient({"msToken": "token-1"})
     called_requests = []

@@ -638,6 +638,92 @@ class DouyinAPIClient:
             "raw": raw,
         }
 
+    async def get_live_replay_episode(self, episode_id: str) -> Optional[Dict[str, Any]]:
+        """获取直播回放入口信息，包含回放对应的 room_id。"""
+        params = await self._default_query()
+        params.update({"channel": "", "episode_id": episode_id})
+        raw = await self._request_json(
+            "/aweme/v1/web/show/episode/enter/",
+            params,
+            suppress_error=True,
+        )
+        data = raw.get("data") if isinstance(raw, dict) else None
+        if isinstance(data, dict):
+            for key in ("episode", "episode_info", "show_episode"):
+                episode = data.get(key)
+                if isinstance(episode, dict):
+                    return episode
+        episode = raw.get("episode") if isinstance(raw, dict) else None
+        return episode if isinstance(episode, dict) else None
+
+    async def get_live_replay_info(
+        self, episode_id: str, room_id: str, replay_id: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        """获取直播回放条目，包含可播放的 video/audio URL 列表。"""
+        params = await self._default_query()
+        params.update({"channel": "", "episode_id": episode_id, "room_id": room_id})
+        if replay_id:
+            params["replay_id"] = replay_id
+        raw = await self._request_json(
+            "/aweme/v1/web/show/episode/replay_list/",
+            params,
+            suppress_error=True,
+        )
+        data = raw.get("data") if isinstance(raw, dict) else None
+        candidates = self._live_replay_candidates(data)
+        if not candidates:
+            return None
+
+        for item in candidates:
+            if self._live_replay_matches(item, episode_id, replay_id):
+                return item
+
+        if replay_id:
+            return None
+        if len(candidates) == 1:
+            return candidates[0]
+        return None
+
+    @staticmethod
+    def _live_replay_candidates(data: Any) -> List[Dict[str, Any]]:
+        candidates: List[Dict[str, Any]] = []
+
+        def add_item(item: Any) -> None:
+            if isinstance(item, dict):
+                candidates.append(item)
+
+        def add_list(items: Any) -> None:
+            if isinstance(items, list):
+                for item in items:
+                    add_item(item)
+
+        if not isinstance(data, dict):
+            return candidates
+        for key in ("replay", "replay_info", "current_replay"):
+            add_item(data.get(key))
+        for key in ("info_list", "replay_list", "replays"):
+            add_list(data.get(key))
+        groups = data.get("all_replay")
+        if isinstance(groups, list):
+            for group in groups:
+                if not isinstance(group, dict):
+                    continue
+                for key in ("info_list", "replay_list", "replays"):
+                    add_list(group.get(key))
+        if "video_info" in data:
+            add_item(data)
+        return candidates
+
+    @staticmethod
+    def _live_replay_matches(
+        item: Dict[str, Any], episode_id: str, replay_id: Optional[str] = None
+    ) -> bool:
+        replay_keys = ("replay_id", "id", "replay_id_str")
+        episode_keys = ("episode_id_str", "episode_id")
+        if replay_id:
+            return any(str(item.get(key) or "") == str(replay_id) for key in replay_keys)
+        return any(str(item.get(key) or "") == str(episode_id) for key in episode_keys)
+
     async def get_hot_search_board(self) -> Dict[str, Any]:
         """获取抖音热搜榜。返回归一化 dict，items 为热搜词条列表。"""
         params = await self._default_query()
