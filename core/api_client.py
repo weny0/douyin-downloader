@@ -238,8 +238,7 @@ class DouyinAPIClient:
                                 "will retry" if attempt < max_retries - 1 else "no retries remain"
                             )
                             logger.warning(
-                                "Empty 200 response for %s (attempt %d/%d), "
-                                "likely anti-bot; %s",
+                                "Empty 200 response for %s (attempt %d/%d), likely anti-bot; %s",
                                 path,
                                 attempt + 1,
                                 max_retries,
@@ -451,7 +450,7 @@ class DouyinAPIClient:
     ) -> Dict[str, Any]:
         params = await self._build_user_page_params(sec_uid, max_cursor, count)
         raw = await self._request_json("/aweme/v1/web/mix/list/", params)
-        return self._normalize_paged_response(raw, item_keys=["mix_list"])
+        return self._normalize_paged_response(raw, item_keys=["mix_infos", "mix_list"])
 
     async def get_user_music(
         self, sec_uid: str, max_cursor: int = 0, count: int = 20
@@ -686,9 +685,13 @@ class DouyinAPIClient:
         url = f"{self.LIVE_WEB_BASE_URL}/{web_rid}"
         headers = {**self.headers, "Referer": "https://live.douyin.com/"}
         try:
-            async with self._session.get(url, headers=headers, proxy=self.proxy or None) as response:
+            async with self._session.get(
+                url, headers=headers, proxy=self.proxy or None
+            ) as response:
                 if response.status != 200:
-                    logger.error("Live page request failed: web_rid=%s, status=%s", web_rid, response.status)
+                    logger.error(
+                        "Live page request failed: web_rid=%s, status=%s", web_rid, response.status
+                    )
                     return None
                 return self._extract_live_room_from_html(await response.text())
         except Exception as exc:
