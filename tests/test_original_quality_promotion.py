@@ -1,4 +1,4 @@
-"""回归测试:highest 画质下探测 ratio=default 原画并按实际大小置顶。
+"""回归测试:original 画质下探测 ratio=default 原画并按实际大小置顶。
 
 Web detail API 的 ``video.bit_rate`` 阶梯不含原画档(实测最高档可比原画
 小 8 倍),原画只能通过 ``/aweme/v1/play/?ratio=default`` 的 302 获取;
@@ -12,7 +12,7 @@ from unittest.mock import Mock
 import pytest
 
 
-def _build_video_downloader(tmp_path, video_quality="highest"):
+def _build_video_downloader(tmp_path, video_quality="original"):
     from auth import CookieManager
     from config import ConfigLoader
     from control import QueueManager, RateLimiter, RetryHandler
@@ -47,9 +47,7 @@ class _FakeResponse:
         self.url = url
         self.content_type = content_type
         self.headers = (
-            headers
-            if headers is not None
-            else {"Content-Range": f"bytes 0-0/{total_size}"}
+            headers if headers is not None else {"Content-Range": f"bytes 0-0/{total_size}"}
         )
 
     async def __aenter__(self):
@@ -114,9 +112,7 @@ class TestOriginalPromotion:
         downloader = _build_video_downloader(tmp_path)
         aweme = _aweme(gear_size=8_000_000)
         base = downloader._build_video_url_candidates(aweme)
-        session = _prepare(
-            downloader, session_response=_FakeResponse(total_size=70_000_000)
-        )
+        session = _prepare(downloader, session_response=_FakeResponse(total_size=70_000_000))
 
         result = asyncio.run(
             downloader._maybe_promote_original_candidate(aweme, list(base), session)
@@ -137,9 +133,7 @@ class TestOriginalPromotion:
         downloader = _build_video_downloader(tmp_path)
         aweme = _aweme(gear_size=47_000_000)
         base = downloader._build_video_url_candidates(aweme)
-        session = _prepare(
-            downloader, session_response=_FakeResponse(total_size=31_000_000)
-        )
+        session = _prepare(downloader, session_response=_FakeResponse(total_size=31_000_000))
 
         result = asyncio.run(
             downloader._maybe_promote_original_candidate(aweme, list(base), session)
@@ -151,9 +145,7 @@ class TestOriginalPromotion:
         downloader = _build_video_downloader(tmp_path)
         aweme = _aweme(gear_size=None)
         base = downloader._build_video_url_candidates(aweme)
-        session = _prepare(
-            downloader, session_response=_FakeResponse(total_size=70_000_000)
-        )
+        session = _prepare(downloader, session_response=_FakeResponse(total_size=70_000_000))
 
         result = asyncio.run(
             downloader._maybe_promote_original_candidate(aweme, list(base), session)
@@ -165,9 +157,7 @@ class TestOriginalPromotion:
         downloader = _build_video_downloader(tmp_path, video_quality="1080p")
         aweme = _aweme()
         base = downloader._build_video_url_candidates(aweme)
-        session = _prepare(
-            downloader, session_response=_FakeResponse(total_size=70_000_000)
-        )
+        session = _prepare(downloader, session_response=_FakeResponse(total_size=70_000_000))
 
         result = asyncio.run(
             downloader._maybe_promote_original_candidate(aweme, list(base), session)
@@ -207,13 +197,9 @@ class TestOriginalPromotion:
         aweme = _aweme()
         aweme["video"]["is_need_set_cookie"] = True
         base = downloader._build_video_url_candidates(aweme)
-        session = _prepare(
-            downloader, session_response=_FakeResponse(total_size=70_000_000)
-        )
+        session = _prepare(downloader, session_response=_FakeResponse(total_size=70_000_000))
 
-        asyncio.run(
-            downloader._maybe_promote_original_candidate(aweme, list(base), session)
-        )
+        asyncio.run(downloader._maybe_promote_original_candidate(aweme, list(base), session))
 
         params = downloader.api_client.build_signed_path.call_args[0][1]
         assert params["ss_is_p_v_ss"] == "1"
@@ -253,9 +239,7 @@ class TestOriginalPromotion:
         downloader = _build_video_downloader(tmp_path)
         aweme = _aweme(gear_size=8_000_000)
         base = downloader._build_video_url_candidates(aweme)
-        session = _prepare(
-            downloader, session_response=_FakeResponse(total_size=8_000_000)
-        )
+        session = _prepare(downloader, session_response=_FakeResponse(total_size=8_000_000))
 
         result = asyncio.run(
             downloader._maybe_promote_original_candidate(aweme, list(base), session)
@@ -267,13 +251,9 @@ class TestOriginalPromotion:
         downloader = _build_video_downloader(tmp_path)
         aweme = _aweme()
         base = downloader._build_video_url_candidates(aweme)
-        session = _prepare(
-            downloader, session_response=_FakeResponse(total_size=70_000_000)
-        )
+        session = _prepare(downloader, session_response=_FakeResponse(total_size=70_000_000))
 
-        asyncio.run(
-            downloader._maybe_promote_original_candidate(aweme, list(base), session)
-        )
+        asyncio.run(downloader._maybe_promote_original_candidate(aweme, list(base), session))
 
         params = downloader.api_client.build_signed_path.call_args[0][1]
         assert "ss_is_p_v_ss" not in params
@@ -285,9 +265,7 @@ class TestOriginalPromotion:
         base = downloader._build_video_url_candidates(aweme)
         session = _prepare(
             downloader,
-            session_response=_FakeResponse(
-                status=200, headers={"Content-Length": "70000000"}
-            ),
+            session_response=_FakeResponse(status=200, headers={"Content-Length": "70000000"}),
         )
 
         result = asyncio.run(
@@ -300,9 +278,7 @@ class TestOriginalPromotion:
         downloader = _build_video_downloader(tmp_path)
         aweme = _aweme()
         base = downloader._build_video_url_candidates(aweme)
-        session = _prepare(
-            downloader, session_response=_FakeResponse(headers={})
-        )
+        session = _prepare(downloader, session_response=_FakeResponse(headers={}))
 
         result = asyncio.run(
             downloader._maybe_promote_original_candidate(aweme, list(base), session)
@@ -316,9 +292,26 @@ class TestOriginalPromotion:
         aweme["video"]["play_addr"].pop("uri")
         aweme["video"]["bit_rate"][0]["play_addr"].pop("uri")
         base = downloader._build_video_url_candidates(aweme)
-        session = _prepare(
-            downloader, session_response=_FakeResponse(total_size=70_000_000)
+        session = _prepare(downloader, session_response=_FakeResponse(total_size=70_000_000))
+
+        result = asyncio.run(
+            downloader._maybe_promote_original_candidate(aweme, list(base), session)
         )
+
+        assert result == base
+        assert session.calls == []
+
+    def test_highest_no_longer_probes(self, tmp_path):
+        """highest 只取最高转码档,一次探测请求都不发。
+
+        探测的体积(原片可达转码档 8 倍)与耗时(每条多一次请求,超时上限
+        10s)代价已迁到显式的 original 档;highest 若仍探测,用户就没有关掉
+        探测的办法了。
+        """
+        downloader = _build_video_downloader(tmp_path, video_quality="highest")
+        aweme = _aweme(gear_size=8_000_000)
+        base = downloader._build_video_url_candidates(aweme)
+        session = _prepare(downloader, session_response=_FakeResponse(total_size=70_000_000))
 
         result = asyncio.run(
             downloader._maybe_promote_original_candidate(aweme, list(base), session)

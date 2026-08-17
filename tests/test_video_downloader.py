@@ -1444,7 +1444,6 @@ def test_iter_gallery_items_top_level_image_list(tmp_path):
     asyncio.run(api_client.close())
 
 
-
 def _paid_aweme_without_direct_urls():
     """付费作品：play_addr 无可用直连 URL，只剩 uri 与 download_addr 可构造。"""
     return {
@@ -1496,14 +1495,11 @@ async def test_encrypted_download_is_discarded(tmp_path):
 
     sinf = box(
         b"sinf",
-        box(b"frma", b"avc1")
-        + box(b"schm", b"\x00\x00\x00\x00" + b"cenc" + b"\x00\x01\x00\x00"),
+        box(b"frma", b"avc1") + box(b"schm", b"\x00\x00\x00\x00" + b"cenc" + b"\x00\x01\x00\x00"),
     )
     stsd = box(
         b"stsd",
-        b"\x00\x00\x00\x00"
-        + struct.pack(">I", 1)
-        + box(b"encv", b"\x00" * 78 + sinf),
+        b"\x00\x00\x00\x00" + struct.pack(">I", 1) + box(b"encv", b"\x00" * 78 + sinf),
     )
     moov = box(b"moov", box(b"trak", box(b"mdia", box(b"minf", box(b"stbl", stsd)))))
     video_path = tmp_path / "paid.mp4"
@@ -1534,11 +1530,13 @@ async def test_plaintext_download_is_kept(tmp_path):
     assert video_path.exists()
 
 
-
 async def test_paid_content_skips_original_quality_probe(tmp_path):
     """付费作品不做 ratio=default 原画探测：探到的是同一份试看资产（实测
     大小逐字节相等），真正的「原片」是要不起的 CENC 全长正片。"""
     downloader, _ = _build_downloader(tmp_path)
+    # 必须显式选 original：默认的 highest 根本不探测，那样这条用例就算删掉
+    # 付费护栏也照样通过——测的是空气。
+    downloader.config.update(video_quality="original")
     aweme = {
         "charge_info": {"is_charge_content": True, "has_paid": False},
         "video": {"play_addr": {"uri": "v0200abc", "data_size": 163679958}},
@@ -1562,6 +1560,7 @@ async def test_paid_content_skips_original_quality_probe(tmp_path):
 async def test_free_content_still_probes_original_quality(tmp_path):
     """免费作品的原画探测行为保持不变。"""
     downloader, _ = _build_downloader(tmp_path)
+    downloader.config.update(video_quality="original")
     aweme = {
         "charge_info": None,
         "video": {"play_addr": {"uri": "v0300abc", "data_size": 1000}},
@@ -1589,8 +1588,7 @@ async def test_encrypted_video_aborts_before_recording_success(tmp_path, monkeyp
 
     sinf = box(
         b"sinf",
-        box(b"frma", b"avc1")
-        + box(b"schm", b"\x00\x00\x00\x00" + b"cenc" + b"\x00\x01\x00\x00"),
+        box(b"frma", b"avc1") + box(b"schm", b"\x00\x00\x00\x00" + b"cenc" + b"\x00\x01\x00\x00"),
     )
     stsd = box(
         b"stsd",
