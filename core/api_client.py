@@ -51,6 +51,21 @@ _RETRY_DELAYS_SECONDS = (1, 2, 5)
 _MAX_ATTEMPTS = 3
 _SERVER_ERROR_MIN_STATUS = 500
 
+# 上面说的限速 403 body 是空的或无关文本;Argus 门禁的 403 body 形如
+# ``Blocked by ArgusSecurityPlugin Uifid Not Found``——请求形状被确定性拒绝,重试 /
+# 等待 / 重新登录都无效(docs/spec/common-mistakes.md「Argus 门禁」)。
+ARGUS_REJECTION_MARKER = "ArgusSecurityPlugin"
+_ARGUS_REJECTION_STATUS = 403
+# 失败响应 body 只取前 80 字进日志:够看出 Uifid / Signature / Sign Invalid 三种提示。
+_ERROR_BODY_LOG_CHARS = 80
+# 读错误 body 的上限:只为诊断,慢速 / 不结束的 body 不能把请求拖到 30s 超时。
+_ERROR_BODY_READ_BYTES = 1024
+_ERROR_BODY_READ_TIMEOUT_SECONDS = 2.0
+
+# 作者主页「合集」的 series/list 分支:整份列表在 get_user_mix 的第一页里取完,
+# 页数上限兜住 has_more 恒为 1 的异常响应(每页 20 条 => 最多 200 个合集)。
+_SERIES_LIST_MAX_PAGES = 10
+
 _HOMEPAGE_SCREENSHOT_BRIDGE_ENV = "DOUYIN_HOMEPAGE_SCREENSHOT_BRIDGE"
 _HOMEPAGE_SCREENSHOT_MESSAGE_PREFIX = "DOUYIN_HOMEPAGE_SCREENSHOT_REQUEST "
 _HOMEPAGE_PROFILE_READY_SCRIPT = r"""(expected) => {
@@ -142,6 +157,30 @@ class LoginRequiredError(Exception):
         super().__init__(f"login required (status_code={status_code}) at {path}: {status_msg}")
 
 
+class FailedPayload(dict):
+    """请求失败时回的空 payload,多带一条机器可读的失败原因。
+
+    与 ``{}`` 完全等价(``not payload``、``payload == {}`` 都成立):「失败回 ``{}``」
+    是几十个调用方与测试替身共同依赖的契约,不能换返回类型。只有分页 walk 读
+    ``kind``,据此决定要不要整页重试、给用户什么文案。拷贝(``dict(p)`` / ``{**p}``)
+    会丢掉原因,退化成普通的请求失败——只少了提示,不会误判。
+    """
+
+    # 抖音确定性拒绝:403 且 body 带 ArgusSecurityPlugin(直连或经 page bridge)。
+    REJECTED = "rejected"
+    # page bridge 传输失败(TIMEOUT / PAGE_LOAD_FAILED 等),``detail`` 是错误码。
+    BRIDGE_ERROR = "bridge_error"
+
+    def __init__(
+        self, kind: str, *, status: int = 0, detail: str = "", via_bridge: bool = False
+    ) -> None:
+        super().__init__()
+        self.kind = kind
+        self.status = status
+        self.detail = detail
+        self.via_bridge = via_bridge
+
+
 def _is_login_required(data: object) -> bool:
     if not isinstance(data, dict):
         return False
@@ -159,12 +198,32 @@ def _summarize_api_response(data: object) -> Dict[str, Any]:
 
     raw = data if isinstance(data, dict) else {}
     item_key = "-"
-    item_count = 0
-    for key in ("aweme_list", "items", "followings", "mix_list", "music_list", "data"):
-        value = raw.get(key)
+    item_count: Any = 0
+    # 覆盖所有 ``_normalize_paged_response`` 用到的列表键：少一个就会把「列表里
+    # 有 3 条」记成 item_count=0，2026-09-16 的合集排查就因此多绕了一圈。
+    for key in (
+        "aweme_list",
+        "items",
+        "followings",
+        "mix_infos",
+        "mix_list",
+        "series_infos",
+        "music_list",
+        "collects_list",
+        "comments",
+        "data",
+    ):
+        if key not in raw:
+            continue
+        value = raw[key]
         if isinstance(value, list):
             item_key = key
             item_count = len(value)
+            break
+        if value is None:
+            # ``"mix_infos": null`` 与 ``[]`` 在日志里必须能分辨。
+            item_key = key
+            item_count = "null"
             break
 
     status_msg = " ".join(str(raw.get("status_msg") or "").split())[:200]
@@ -194,6 +253,56 @@ def _safe_error_text(exc: Exception) -> str:
     text = " ".join(str(exc).split())
     text = re.sub(r"(https?://[^?\s]+)\?\S+", r"\1?[redacted-query]", text)
     return text[:500]
+
+
+async def _read_error_body_prefix(response: Any) -> str:
+    """非 200 响应 body 的前 80 字,只用于日志与 Argus 判定;读失败不影响重试流程。
+
+    有界读取(字节数 + 时长):超时 / 断流时保留已经收到的部分,别让慢速 body
+    把请求挂到超时,也别因此丢掉已到手的 Argus 标记。
+    不用 ``asyncio.wait_for``:Python 3.9–3.11 上「读完」与外部取消同时发生时它会
+    吞掉取消(CPython gh-86296),CLI 仍支持这些版本。
+    """
+    received = bytearray()
+
+    async def _read_bounded() -> None:
+        while len(received) < _ERROR_BODY_READ_BYTES:
+            chunk = await response.content.read(_ERROR_BODY_READ_BYTES - len(received))
+            if not chunk:
+                return
+            received.extend(chunk)
+
+    reader = asyncio.ensure_future(_read_bounded())
+    reader.add_done_callback(_consume_task_exception)
+    try:
+        await asyncio.wait({reader}, timeout=_ERROR_BODY_READ_TIMEOUT_SECONDS)
+    finally:
+        reader.cancel()
+    return bytes(received).decode("utf-8", "replace")[:_ERROR_BODY_LOG_CHARS]
+
+
+def _consume_task_exception(task: "asyncio.Future[Any]") -> None:
+    """读流异常(断流等)只意味着少了诊断信息;取走它,免得 asyncio 报 never retrieved。"""
+    if not task.cancelled():
+        task.exception()
+
+
+def page_request_failed(page: Any) -> bool:
+    """归一化分页里「这一页请求没成功」的判据。
+
+    与 ``core.user_modes.base_strategy._empty_page_failure_cause`` 同源，但**不含**
+    ``items_missing``:``mix_infos`` / ``series_infos`` 为 ``null`` 是「这个作者没有
+    合集」的正常形态(2026-09-16 实测),把它当失败会让普通作者全都扫成失败。
+    """
+    if not isinstance(page, dict):
+        return False
+    if "raw" in page and not page.get("raw"):
+        return True
+    return bool(page.get("status_code"))
+
+
+def _is_argus_rejection(status: int, body_prefix: str) -> bool:
+    return status == _ARGUS_REJECTION_STATUS and ARGUS_REJECTION_MARKER in body_prefix
 
 
 def _log_api_response(
@@ -499,30 +608,40 @@ class DouyinAPIClient:
                                 path,
                             )
                         return result
+                    body_prefix = await _read_error_body_prefix(response)
                     risk_control_hit = response.status in _RISK_CONTROL_HTTP_STATUSES
-                    if response.status < 500 and not risk_control_hit:
+                    terminal = _is_argus_rejection(response.status, body_prefix) or (
+                        response.status < 500 and not risk_control_hit
+                    )
+                    if terminal:
                         log_fn = logger.info if suppress_error else logger.error
                         log_fn(
                             "Douyin API HTTP failure: path=%s attempt=%d/%d status=%s "
-                            "duration_ms=%d suppress_error=%s",
+                            "duration_ms=%d suppress_error=%s body=%r",
                             path,
                             attempt + 1,
                             max_retries,
                             response.status,
                             _elapsed_ms(started),
                             suppress_error,
+                            body_prefix,
                         )
-                        return {}
+                        if not _is_argus_rejection(response.status, body_prefix):
+                            return {}
+                        return FailedPayload(
+                            FailedPayload.REJECTED, status=response.status, detail=body_prefix
+                        )
                     last_exc = RuntimeError(f"HTTP {response.status} for {path}")
                     logger.warning(
                         "Douyin API retryable HTTP failure: path=%s attempt=%d/%d status=%s "
-                        "duration_ms=%d risk_control=%s",
+                        "duration_ms=%d risk_control=%s body=%r",
                         path,
                         attempt + 1,
                         max_retries,
                         response.status,
                         _elapsed_ms(started),
                         risk_control_hit,
+                        body_prefix,
                     )
             except LoginRequiredError:
                 raise
@@ -638,15 +757,22 @@ class DouyinAPIClient:
             await asyncio.sleep(_RETRY_DELAYS_SECONDS[min(attempt, len(_RETRY_DELAYS_SECONDS) - 1)])
         if status == 200:
             return self._payload_from_bridge_result(result, path, started)
+        body_prefix = str(getattr(result, "text", "") or "")[:_ERROR_BODY_LOG_CHARS]
         log_fn = logger.info if suppress_error else logger.error
         log_fn(
             "Douyin API HTTP failure via page bridge: path=%s status=%s duration_ms=%d body=%r",
             path,
             status,
             _elapsed_ms(started),
-            str(getattr(result, "text", "") or "")[:80],
+            body_prefix,
         )
-        return {}
+        # 与直连同一判据:只有 Argus 标记是确定性拒绝;普通 403 / 429 可能只是限流,
+        # 分页 walk 仍要有整页重试的机会。
+        if not _is_argus_rejection(status, body_prefix):
+            return {}
+        return FailedPayload(
+            FailedPayload.REJECTED, status=status, detail=body_prefix, via_bridge=True
+        )
 
     async def _fetch_via_page_bridge(
         self,
@@ -845,9 +971,133 @@ class DouyinAPIClient:
     async def get_user_mix(
         self, sec_uid: str, max_cursor: int = 0, count: int = 20
     ) -> Dict[str, Any]:
+        """作者主页「合集」= ``mix/list`` ∪ ``series/list``。
+
+        2026-09-16 实测:两个端点的结果互不相交,谁都不是谁的超集——橙子说漫
+        ``mix_infos=null`` / ``series_infos=3``,煎饼果仔 ``mix_infos=1`` /
+        ``series_infos=2``,普通作者两边都空。只查 ``mix/list`` 的作者会被判成
+        「没有公开合集」。两边的 id 同一套:``mix/detail`` 与 ``mix/aweme`` 拿
+        ``series_id`` 都能正常返回,所以 series 条目在这里就整形成 mix 形态,
+        下游(合集扫描、mix 下载模式)不必知道有第二个来源。
+        ``series/list`` 整份在第一次调用里走完:翻页游标属于 ``mix/list``,
+        两边混用会重复拉取。
+
+        一边失败一边有内容时交出拿到的部分(CLI 没有 page bridge,``mix/list``
+        必然被 Argus 拒,只让 series 那半边成立总比整个模式失败好);两边都
+        没内容时必须把失败页交出去,否则「请求失败」又会被显示成「没有公开
+        合集」——那正是这次要修的谎。
+        """
         params = await self._build_user_page_params(sec_uid, max_cursor, count)
         raw = await self._request_json_gated("/aweme/v1/web/mix/list/", params)
-        return self._normalize_paged_response(raw, item_keys=["mix_infos", "mix_list"])
+        page = self._normalize_paged_response(raw, item_keys=["mix_infos", "mix_list"])
+        if max_cursor:
+            return page
+        try:
+            series_items, series_failure = await self._collect_user_series_as_mixes(sec_uid, count)
+        except Exception:
+            if not page.get("items"):
+                raise
+            logger.warning("series/list failed, keeping mix/list page only", exc_info=True)
+            return page
+        if series_failure is not None and not series_items and not page.get("items"):
+            return series_failure
+        return self._merge_series_into_page(page, series_items)
+
+    async def get_user_series(
+        self, sec_uid: str, cursor: int = 0, count: int = 20
+    ) -> Dict[str, Any]:
+        """作者主页「合集」里的 new mix(series)一页。
+
+        参数照抄网页:``read_new_mix=true`` 是必需的——去掉它抖音恒回
+        ``series_infos=null``(2026-09-16 实测)。游标字段是 ``cursor`` 而不是
+        ``max_cursor``,值是时间戳形态的下一页锚点,必须原样回传。
+        """
+        params = await self._default_query()
+        params.update(
+            {
+                "sec_user_id": sec_uid,
+                "req_from": "channel_pc_web",
+                "read_new_mix": "true",
+                "cursor": cursor,
+                "count": count,
+            }
+        )
+        raw = await self._request_json_gated("/aweme/v1/web/series/list/", params)
+        return self._normalize_paged_response(raw, item_keys=["series_infos"])
+
+    async def _collect_user_series_as_mixes(
+        self, sec_uid: str, count: int
+    ) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
+        """走完 series/list;第二个返回值是失败页(没失败就是 None)。
+
+        这里的失败绝大多数不是异常:``_request_json`` 的 HTTP 错误、bridge 的
+        非 Argus 非 200 都回空 ``{}``,Argus 403 回假值 ``FailedPayload``。
+        只 catch 异常会把它们当成「这个作者没有 series 合集」,正是本次要修的
+        那个谎。所以逐页按 raw / status_code 判失败,交给调用方定策略。
+        """
+        items: List[Dict[str, Any]] = []
+        cursor = 0
+        for _ in range(_SERIES_LIST_MAX_PAGES):
+            page = await self.get_user_series(sec_uid, cursor=cursor, count=count)
+            page_items = page.get("items") or []
+            items.extend(
+                self._series_entry_as_mix(entry)
+                for entry in page_items
+                if isinstance(entry, dict) and entry.get("series_id")
+            )
+            if not page_items and page_request_failed(page):
+                logger.warning("series/list page failed at cursor=%s", cursor)
+                return items, page
+            if not page.get("has_more"):
+                return items, None
+            # 游标取原始 ``cursor``:series/list 没有 ``max_cursor``,但归一化层
+            # 优先读它,真出现 ``max_cursor: 0`` 会把翻页判成「游标没推进」。
+            next_cursor = int(page.get("cursor") or page.get("max_cursor") or 0)
+            if next_cursor == cursor:
+                logger.warning("Series list cursor did not advance (%s), stopping", cursor)
+                return items, None
+            cursor = next_cursor
+        logger.warning(
+            "Series list hit the %d-page cap for %s, later pages dropped",
+            _SERIES_LIST_MAX_PAGES,
+            sec_uid,
+        )
+        return items, None
+
+    @staticmethod
+    def _series_entry_as_mix(entry: Dict[str, Any]) -> Dict[str, Any]:
+        """series_infos 条目 -> mix_infos 形态,只搬下游真正读到的字段。"""
+        return {
+            "mix_id": str(entry.get("series_id") or ""),
+            "mix_name": entry.get("series_name") or "",
+            "statis": entry.get("stats") or {},
+            "author": entry.get("author") or {},
+        }
+
+    @staticmethod
+    def _mix_entry_id(item: Any) -> str:
+        if not isinstance(item, dict):
+            return ""
+        meta = item.get("mix_info") if isinstance(item.get("mix_info"), dict) else item
+        return str(meta.get("mix_id") or "")
+
+    @classmethod
+    def _merge_series_into_page(
+        cls, page: Dict[str, Any], series_items: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        if not series_items:
+            return page
+        existing = {cls._mix_entry_id(item) for item in page.get("items") or []}
+        merged = list(page.get("items") or [])
+        merged.extend(item for item in series_items if item["mix_id"] not in existing)
+        if not page.get("raw"):
+            # mix/list 这一页失败了,但 series/list 有内容:交出拿到的部分,
+            # 别让一次失败把整份合集列表打成空。
+            logger.warning("mix/list page failed, returning %d series entries only", len(merged))
+        page["items"] = merged
+        page["aweme_list"] = merged
+        page["items_missing"] = False
+        return page
 
     async def get_user_music(
         self, sec_uid: str, max_cursor: int = 0, count: int = 20
